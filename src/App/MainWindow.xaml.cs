@@ -1575,6 +1575,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         DisposeKeyboardMapping();
         DisposeTray();
+        CloseFullScreenExitOverlay();
         _compactLaunchCancellation.Cancel();
         _secondaryMirrors.PreviewClosed -= OnCompactPreviewClosed;
         CancelLightweightWindowWidthAnimation();
@@ -5749,7 +5750,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (_isFullScreen)
         {
+            // Compact mode pins Width, MinWidth and MaxWidth to the portrait
+            // frame. Release all three so the preview can fill the monitor;
+            // leaving full screen reapplies the compact frame policy.
+            PreviewPanel.BeginAnimation(WidthProperty, null);
             PreviewPanel.ClearValue(WidthProperty);
+            PreviewPanel.ClearValue(MinWidthProperty);
+            PreviewPanel.ClearValue(MaxWidthProperty);
+            PreviewPanel.HorizontalAlignment = HorizontalAlignment.Stretch;
             return;
         }
 
@@ -5906,7 +5914,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private void ApplyLightweightPreviewFramePolicy(
         bool? useNormalPortraitFrame = null, double? contentPreviewWidth = null)
     {
-        if (!_viewModel.IsLightweightApplicationMode) return;
+        if (!_viewModel.IsLightweightApplicationMode || _isFullScreen) return;
         double requestedContentPreviewWidth;
         if (contentPreviewWidth is { } explicitContentPreviewWidth)
             requestedContentPreviewWidth = explicitContentPreviewWidth;
@@ -6507,6 +6515,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         UpdateMainPreviewCornerProfile();
         ApplyApplicationDisplayMode();
         UpdateMediaCastFullScreenButton();
+        UpdateFullScreenExitOverlay();
         _viewModel.AddDiagnosticLog(AppLog.Event("main_fullscreen_state",
             ("enabled", _isFullScreen)));
     }
