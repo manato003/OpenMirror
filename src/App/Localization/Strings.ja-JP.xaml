@@ -1626,12 +1626,12 @@ BluetoothとAssistiveTouchが必要です。
     <system:String x:Key="HomeStatusStarting">準備しています…</system:String>
     <system:String x:Key="HomeStatusError">待ち受けできません</system:String>
     <system:String x:Key="HomeStatusApplying">切り替えています…</system:String>
-    <system:String x:Key="HomeDevicesTitle">映している端末</system:String>
-    <system:String x:Key="HomeDevicesEmpty">まだありません。iPhoneで映すと、窓が自動で開きます。</system:String>
-    <system:String x:Key="HomeStopToolTip">映すのをやめる</system:String>
-    <system:String x:Key="HomeBringForward">前に出す</system:String>
-    <system:String x:Key="HomeShowWindow">窓を出す</system:String>
-    <system:String x:Key="HomeStartUsb">USBで映す</system:String>
+    <system:String x:Key="HomeDevicesTitle">ミラーリング中のデバイス</system:String>
+    <system:String x:Key="HomeDevicesEmpty">まだありません。iPhoneでミラーリングを始めると、ウィンドウが自動で開きます。</system:String>
+    <system:String x:Key="HomeStopToolTip">ミラーリングを停止</system:String>
+    <system:String x:Key="HomeBringForward">前面に表示</system:String>
+    <system:String x:Key="HomeShowWindow">ウィンドウを表示</system:String>
+    <system:String x:Key="HomeStartUsb">USBでミラーリング</system:String>
     <system:String x:Key="HomeDeviceDetailFormat">{0}・{1}</system:String>
     <system:String x:Key="HomeConnectionWireless">無線</system:String>
     <system:String x:Key="HomeConnectionUsb">USB</system:String>
@@ -1650,12 +1650,12 @@ BluetoothとAssistiveTouchが必要です。
     <system:String x:Key="HomeAllFeaturesDetail">録画・配信・操作・USBの設定など</system:String>
     <system:String x:Key="HomeQuit">終了</system:String>
     <system:String x:Key="HomeKeepsRunningTitle">待ち受けを続けています</system:String>
-    <system:String x:Key="HomeKeepsRunningBody">iPhoneMirrorは通知領域にいます。iPhoneで映すと、窓が自動で開きます。</system:String>
+    <system:String x:Key="HomeKeepsRunningBody">iPhoneMirrorは通知領域にいます。iPhoneでミラーリングを始めると、ウィンドウが自動で開きます。</system:String>
     <system:String x:Key="HomeBackToSimple">シンプル表示</system:String>
     <system:String x:Key="HomeBackToSimpleToolTip">この画面を閉じて、ホームと通知領域での待ち受けに戻ります</system:String>
-    <system:String x:Key="MirrorBarExitFullScreen">全画面をやめる（Esc）</system:String>
+    <system:String x:Key="MirrorBarExitFullScreen">全画面を終了（Esc）</system:String>
     <system:String x:Key="MirrorBarMore">その他の操作</system:String>
-    <system:String x:Key="MirrorBarStop">映すのをやめる</system:String>
+    <system:String x:Key="MirrorBarStop">ミラーリングを停止</system:String>
     <system:String x:Key="MirrorBarScreenshotSaved">ピクチャの「iPhoneMirror」に保存しました（押すと表示）</system:String>
     <system:String x:Key="MirrorBarActionFailed">うまくいきませんでした。もう一度試してください。</system:String>
 </ResourceDictionary>
