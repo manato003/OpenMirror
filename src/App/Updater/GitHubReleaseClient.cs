@@ -134,12 +134,21 @@ internal sealed class GitHubReleaseClient : IDisposable
         TimeSpan.FromSeconds(12);
     private static readonly TimeSpan DownloadStallTimeout = TimeSpan.FromSeconds(30);
     private const int MaximumRankedRoutes = 4;
+    // The fork publishes releases on GitHub only; the upstream raw manifest
+    // (updates/releases.json) lists upstream assets and is not used.
     private static readonly (string Name, Uri Uri)[] ReleaseEndpoints =
     [
         ("github-api", new Uri(
-            "https://api.github.com/repos/RayrenSX/iPhoneMirror/releases?per_page=20")),
-        ("github-raw", new Uri(
-            "https://raw.githubusercontent.com/RayrenSX/iPhoneMirror/main/updates/releases.json")),
+            $"https://api.github.com/repos/{ReleaseRepository.Slug}/releases?per_page=20")),
+    ];
+    // The fork does not repackage the optional UxPlay runtime; it is taken
+    // from the upstream release that carries it.
+    private static readonly (string Name, Uri Uri)[] UxPlayReleaseEndpoints =
+    [
+        ("upstream-github-api", new Uri(
+            $"https://api.github.com/repos/{ReleaseRepository.UpstreamSlug}/releases?per_page=20")),
+        ("upstream-github-raw", new Uri(
+            $"https://raw.githubusercontent.com/{ReleaseRepository.UpstreamSlug}/main/updates/releases.json")),
     ];
     // Snapshot of all 115 mirrors published by moretools.app/zh-CN/github-proxy
     // on 2026-08-15. The original trusted GitHub URL is appended separately.
@@ -300,7 +309,7 @@ internal sealed class GitHubReleaseClient : IDisposable
         {
             NotifyStableReleases = true, NotifyPrereleaseReleases = true,
             AllowMirrorFallback = allowMirrorFallback,
-        }, true, cancellationToken);
+        }, true, cancellationToken, UxPlayReleaseEndpoints);
         if (release?.UxPlayAsset is not { } asset)
             throw new HttpRequestException("The latest application release has no UxPlay ZIP.",
                 null, HttpStatusCode.NotFound);
@@ -311,19 +320,21 @@ internal sealed class GitHubReleaseClient : IDisposable
     }
 
     private async Task<ReleaseInfo?> GetLatestCoreAsync(UpdateSettings settings,
-        bool requireApplicationAsset, CancellationToken cancellationToken)
+        bool requireApplicationAsset, CancellationToken cancellationToken,
+        (string Name, Uri Uri)[]? endpoints = null)
     {
+        endpoints ??= ReleaseEndpoints;
         DiagnosticLogger.Info("updater", "release_check_begin",
             ("stable", settings.NotifyStableReleases),
             ("prerelease", settings.NotifyPrereleaseReleases),
             ("mirror_fallback", settings.AllowMirrorFallback));
         Exception? lastError = null;
         var endpointCount = settings.AllowMirrorFallback
-            ? ReleaseEndpoints.Length
+            ? endpoints.Length
             : 1;
         for (var index = 0; index < endpointCount; ++index)
         {
-            var endpoint = ReleaseEndpoints[index];
+            var endpoint = endpoints[index];
             try
             {
                 var json = await ReadReleaseListAsync(endpoint.Uri, cancellationToken);
@@ -357,7 +368,7 @@ internal sealed class GitHubReleaseClient : IDisposable
         CancellationToken cancellationToken = default)
     {
         var notesUri = new Uri(
-            $"https://raw.githubusercontent.com/RayrenSX/iPhoneMirror/{release.TagName}/docs/releases/{release.TagName}.md");
+            $"{ReleaseRepository.RawRoot}/{release.TagName}/docs/releases/{release.TagName}.md");
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -395,7 +406,7 @@ internal sealed class GitHubReleaseClient : IDisposable
     {
         if (release.TaiwanNotesChecked) return release;
         release = release with { TaiwanNotesChecked = true };
-        var uri = new Uri($"https://raw.githubusercontent.com/RayrenSX/iPhoneMirror/{release.TagName}/CHANGELOG.zh-TW.md");
+        var uri = new Uri($"{ReleaseRepository.RawRoot}/{release.TagName}/CHANGELOG.zh-TW.md");
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

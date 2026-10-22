@@ -1896,11 +1896,15 @@ Equal(true,
 Equal(true,
     nativePreviewWindowCode.Contains("private bool _isTopMost;",
         StringComparison.Ordinal) &&
-    nativePreviewWindowCode.Contains("SetWindowPos(_handle, HwndNoTopMost",
+    nativePreviewWindowCode.Contains("_isTopMost = false;",
+        StringComparison.Ordinal) &&
+    nativePreviewWindowCode.Contains("_isTopMost = placement.TopMost;",
+        StringComparison.Ordinal) &&
+    nativePreviewWindowCode.Contains("_isTopMost ? HwndTopMost : HwndNoTopMost",
         StringComparison.Ordinal) &&
     !nativePreviewWindowCode.Contains("_isTopMost = SetWindowPos(_handle, HwndTopMost",
         StringComparison.Ordinal),
-    "independent previews start non-topmost while retaining the manual pin command");
+    "independent previews start non-topmost unless the user pinned that device's window last time");
 Equal(true,
     true ||
     mainViewModelSource.Contains("private bool _bluetoothControlStopping;",
@@ -2536,7 +2540,7 @@ const string releaseFixture = """
     "assets": [
       { "name": "setup.exe", "size": 30,
         "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "browser_download_url": "https://github.com/RayrenSX/iPhoneMirror/releases/download/v1.4.0-beta.1/setup.exe" }
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.4.0-beta.1/setup.exe" }
     ]
   },
   {
@@ -2548,12 +2552,12 @@ const string releaseFixture = """
     "prerelease": false,
     "assets": [
       { "name": "app.zip", "size": 20,
-        "browser_download_url": "https://github.com/RayrenSX/iPhoneMirror/releases/download/v1.3.1/app.zip" },
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.3.1/app.zip" },
       { "name": "setup.exe", "size": 10,
         "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        "browser_download_url": "https://github.com/RayrenSX/iPhoneMirror/releases/download/v1.3.1/setup.exe" },
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.3.1/setup.exe" },
       { "name": "SHA256SUMS.txt", "size": 5,
-        "browser_download_url": "https://github.com/RayrenSX/iPhoneMirror/releases/download/v1.3.1/SHA256SUMS.txt" }
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.3.1/SHA256SUMS.txt" }
     ]
   }
 ]
@@ -2588,9 +2592,9 @@ const string nonInstallerExeFixture = """
     "prerelease": false,
     "assets": [
       { "name": "iPhoneMirror.Driver.exe", "size": 10,
-        "browser_download_url": "https://github.com/RayrenSX/iPhoneMirror/releases/download/v1.3.2/iPhoneMirror.Driver.exe" },
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.3.2/iPhoneMirror.Driver.exe" },
       { "name": "app.zip", "size": 20,
-        "browser_download_url": "https://github.com/RayrenSX/iPhoneMirror/releases/download/v1.3.2/app.zip" }
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.3.2/app.zip" }
     ]
   }
 ]
@@ -2607,7 +2611,7 @@ const string mismatchedAssetNameFixture = """
     "prerelease": false,
     "assets": [
       { "name": "safe-setup.exe", "size": 10,
-        "browser_download_url": "https://github.com/RayrenSX/iPhoneMirror/releases/download/v1.3.3/different.exe" },
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.3.3/different.exe" },
       { "name": "foreign.zip", "size": 10,
         "browser_download_url": "https://github.com/another/repository/releases/download/v1.3.3/foreign.zip" }
     ]
@@ -2618,7 +2622,7 @@ Equal<ReleaseAsset?>(null,
     ReleaseParser.ParseLatest(mismatchedAssetNameFixture, true, false)?.PreferredAsset,
     "release parser rejects mismatched paths and foreign GitHub repositories");
 var mirroredAsset = new ReleaseAsset("setup.exe",
-    new Uri("https://github.com/RayrenSX/iPhoneMirror/releases/download/v1.3.3/setup.exe"),
+    new Uri("https://github.com/manato003/OpenMirror/releases/download/v1.3.3/setup.exe"),
     10, "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
 var mirrorCandidates = GitHubReleaseClient.BuildDownloadCandidates(
     mirroredAsset, allowMirrorFallback: true);
@@ -3330,32 +3334,24 @@ try
         }));
     using var releaseClient = new GitHubReleaseClient(releaseHttpClient,
         Path.Combine(updateNetworkRoot, "release-check"));
-    var fallbackRelease = await releaseClient.GetLatestAsync(new UpdateSettings
-    {
-        AllowMirrorFallback = true,
-        NotifyStableReleases = true,
-        NotifyPrereleaseReleases = false,
-    });
-    Equal("v1.3.1", fallbackRelease?.TagName,
-        "release check falls back to official GitHub Raw metadata when the API fails");
-    Sequence(["api.github.com", "raw.githubusercontent.com"], releaseRequests,
-        "release metadata lookup does not fetch full notes before version comparison");
-    fallbackRelease = await releaseClient.EnrichReleaseNotesAsync(fallbackRelease!);
-    Equal(true, fallbackRelease.Body.Contains("完整中文说明",
-            StringComparison.Ordinal) == true,
-        "fallback metadata is enriched with the complete version release notes");
-    Sequence(["api.github.com", "raw.githubusercontent.com", "raw.githubusercontent.com"], releaseRequests,
-        "release check uses only official GitHub metadata endpoints");
-
+    // OpenMirror reads its own GitHub release list only. The upstream raw
+    // manifest lists upstream installers, which would replace the fork.
     await ThrowsAsync<HttpRequestException>(async () =>
         await releaseClient.GetLatestAsync(new UpdateSettings
         {
-            AllowMirrorFallback = false,
+            AllowMirrorFallback = true,
             NotifyStableReleases = true,
-        }), "disabled release mirror fallback does not contact alternate endpoints");
-    Equal(2, releaseRequests.Count(host => host.Equals("raw.githubusercontent.com",
-            StringComparison.OrdinalIgnoreCase)),
-        "disabled metadata fallback does not add another GitHub Raw request");
+            NotifyPrereleaseReleases = false,
+        }), "an API outage does not fall back to upstream release metadata");
+    Sequence(["api.github.com"], releaseRequests,
+        "release check contacts only the fork's GitHub release list");
+    var fallbackRelease = ReleaseParser.ParseLatest(releaseFixture, true, false)!;
+    fallbackRelease = await releaseClient.EnrichReleaseNotesAsync(fallbackRelease);
+    Equal(true, fallbackRelease.Body.Contains("完整中文说明",
+            StringComparison.Ordinal) == true,
+        "release metadata is enriched with the complete version release notes");
+    Sequence(["api.github.com", "raw.githubusercontent.com"], releaseRequests,
+        "release notes come from the fork's GitHub Raw files");
 
     var oversizedNotes = new string('x', 1024 * 1024 + 1);
     using var oversizedNotesHttpClient = new HttpClient(new StubHttpMessageHandler(
@@ -3390,14 +3386,14 @@ try
         System.Security.Cryptography.SHA256.HashData(payload)).ToLowerInvariant();
     var downloadAsset = new ReleaseAsset(
         "iPhoneMirror-Setup-v9.9.9-x64.exe",
-        new Uri("https://github.com/RayrenSX/iPhoneMirror/releases/download/v9.9.9/iPhoneMirror-Setup-v9.9.9-x64.exe"),
+        new Uri("https://github.com/manato003/OpenMirror/releases/download/v9.9.9/iPhoneMirror-Setup-v9.9.9-x64.exe"),
         payload.LongLength, payloadHash);
     var downloadRelease = new ReleaseInfo("v9.9.9", "Mirror test", string.Empty,
         DateTimeOffset.UtcNow, SemanticVersion.Parse("v9.9.9"), false,
         downloadAsset, null, null);
 
     var checksumAsset = new ReleaseAsset("SHA256SUMS.txt",
-        new Uri("https://github.com/RayrenSX/iPhoneMirror/releases/download/v9.9.9/SHA256SUMS.txt"),
+        new Uri("https://github.com/manato003/OpenMirror/releases/download/v9.9.9/SHA256SUMS.txt"),
         0);
     var checksumRelease = downloadRelease with
     {

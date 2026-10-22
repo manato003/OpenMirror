@@ -273,22 +273,22 @@ public partial class AboutWindow : IPhoneMirror.UI.Controls.RoundedWindow, INoti
     }
 
     private void OnGitHubClick(object sender, RoutedEventArgs e) =>
-        Open("https://github.com/RayrenSX/iPhoneMirror");
+        Open(ReleaseRepository.WebRoot);
 
     private void OnChangelogClick(object sender, RoutedEventArgs e)
     {
         var path = Path.Combine(AppContext.BaseDirectory, LocalizedReleaseNotes.ChangelogFileName);
         Open(File.Exists(path) ? path :
             LocalizationService.EffectiveCulture.Name == LocalizationService.TraditionalChineseTaiwan
-                ? "https://github.com/RayrenSX/iPhoneMirror/blob/main/CHANGELOG.zh-TW.md"
-                : "https://github.com/RayrenSX/iPhoneMirror/releases");
+                ? ReleaseRepository.UpstreamWebRoot + "/blob/main/CHANGELOG.zh-TW.md"
+                : ReleaseRepository.WebRoot + "/releases");
     }
 
     private void OnLicenseClick(object sender, RoutedEventArgs e)
     {
         var path = Path.Combine(AppContext.BaseDirectory, "LICENSE");
         Open(File.Exists(path) ? path :
-            "https://github.com/RayrenSX/iPhoneMirror/blob/main/LICENSE");
+            ReleaseRepository.WebRoot + "/blob/openmirror/LICENSE");
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();

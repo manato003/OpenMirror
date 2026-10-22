@@ -81,6 +81,7 @@
     <Compile Include="..\App\Services\PendingRecordingStore.cs" Link="PendingRecordingStore.cs" />
     <Compile Include="..\App\Updater\SemanticVersion.cs" Link="Updater\SemanticVersion.cs" />
     <Compile Include="..\App\Updater\ReleaseParser.cs" Link="Updater\ReleaseParser.cs" />
+    <Compile Include="..\App\Updater\ReleaseRepository.cs" Link="Updater\ReleaseRepository.cs" />
     <Compile Include="..\App\Updater\UpdateSettingsStore.cs" Link="Updater\UpdateSettingsStore.cs" />
     <Compile Include="..\App\Updater\GitHubReleaseClient.cs" Link="Updater\GitHubReleaseClient.cs" />
     <Compile Include="..\App\Updater\LocalizedReleaseNotes.cs" Link="Updater\LocalizedReleaseNotes.cs" />

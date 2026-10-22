@@ -21,7 +21,7 @@ internal sealed record ReleaseInfo(
     ReleaseAsset? ZipAsset,
     ReleaseAsset? ChecksumAsset)
 {
-    internal Uri ReleaseUrl { get; init; } = new($"https://github.com/RayrenSX/iPhoneMirror/releases/tag/{TagName}");
+    internal Uri ReleaseUrl { get; init; } = new($"{ReleaseRepository.WebRoot}/releases/tag/{TagName}");
     internal string? TaiwanBody { get; init; }
     internal bool TaiwanNotesChecked { get; init; }
     internal ReleaseAsset? UxPlayAsset { get; init; }
@@ -82,7 +82,7 @@ internal static class ReleaseParser
                 UxPlayAsset = assets.FirstOrDefault(asset =>
                     asset.Name == $"iPhoneMirror-UxPlay-{tag}-win-x64.zip" &&
                     asset.DownloadUri.AbsoluteUri ==
-                        $"https://github.com/RayrenSX/iPhoneMirror/releases/download/{tag}/{asset.Name}"),
+                        $"{ReleaseRepository.UpstreamWebRoot}/releases/download/{tag}/{asset.Name}"),
             };
             if (Uri.TryCreate(GetOptionalString(element, "html_url"), UriKind.Absolute,
                     out var releaseUrl) && IsTrustedReleasePageUri(releaseUrl))
@@ -134,18 +134,23 @@ internal static class ReleaseParser
         return assets;
     }
 
+    // Application updates are read from the fork's release list only; the
+    // upstream prefix is trusted for the UxPlay runtime and its checksums.
     internal static bool IsTrustedGitHubAssetUri(Uri uri) =>
         uri.IsAbsoluteUri &&
         uri.Scheme == Uri.UriSchemeHttps &&
         uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) &&
-        uri.AbsolutePath.StartsWith(
-            "/RayrenSX/iPhoneMirror/releases/download/",
-            StringComparison.OrdinalIgnoreCase);
+        (uri.AbsolutePath.StartsWith(
+            $"/{ReleaseRepository.Slug}/releases/download/",
+            StringComparison.OrdinalIgnoreCase) ||
+         uri.AbsolutePath.StartsWith(
+            $"/{ReleaseRepository.UpstreamSlug}/releases/download/",
+            StringComparison.OrdinalIgnoreCase));
 
     private static bool IsTrustedReleasePageUri(Uri uri) =>
         uri.IsAbsoluteUri && uri.Scheme == Uri.UriSchemeHttps &&
         uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) &&
-        uri.AbsolutePath.StartsWith("/RayrenSX/iPhoneMirror/releases/tag/",
+        uri.AbsolutePath.StartsWith($"/{ReleaseRepository.Slug}/releases/tag/",
             StringComparison.OrdinalIgnoreCase);
 
     private static string? NormalizeSha256(string? digest)
