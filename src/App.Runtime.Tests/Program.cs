@@ -978,9 +978,9 @@ internal static partial class Program
               "draft": false,
               "prerelease": false,
               "assets": [{
-                "name": "iPhoneMirror-Setup-v99.0.0-x64.exe",
+                "name": "OpenMirror-Setup-v99.0.0-x64.exe",
                 "size": 1,
-                "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v99.0.0/iPhoneMirror-Setup-v99.0.0-x64.exe"
+                "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v99.0.0/OpenMirror-Setup-v99.0.0-x64.exe"
               }]
             }]
             """;

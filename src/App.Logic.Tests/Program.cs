@@ -2603,6 +2603,27 @@ Equal("app.zip",
     ReleaseParser.ParseLatest(nonInstallerExeFixture, true, false)?.PreferredAsset?.Name,
     "release parser never launches a non-installer EXE as an update");
 
+const string renamedAssetFixture = """
+[
+  {
+    "tag_name": "v1.8.5-pre3.om.5",
+    "draft": false,
+    "prerelease": false,
+    "assets": [
+      { "name": "OpenMirror-v1.8.5-pre3.om.5-win-x64.zip", "size": 20,
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.8.5-pre3.om.5/OpenMirror-v1.8.5-pre3.om.5-win-x64.zip" },
+      { "name": "OpenMirror-Setup-v1.8.5-pre3.om.5-x64.exe", "size": 10,
+        "browser_download_url": "https://github.com/manato003/OpenMirror/releases/download/v1.8.5-pre3.om.5/OpenMirror-Setup-v1.8.5-pre3.om.5-x64.exe" }
+    ]
+  }
+]
+""";
+var renamedRelease = ReleaseParser.ParseLatest(renamedAssetFixture, true, false);
+Equal("OpenMirror-Setup-v1.8.5-pre3.om.5-x64.exe", renamedRelease?.InstallerAsset?.Name,
+    "release parser finds the OpenMirror-named installer");
+Equal("OpenMirror-v1.8.5-pre3.om.5-win-x64.zip", renamedRelease?.ZipAsset?.Name,
+    "release parser finds the OpenMirror-named portable zip");
+
 const string mismatchedAssetNameFixture = """
 [
   {
@@ -3385,8 +3406,8 @@ try
     var payloadHash = Convert.ToHexString(
         System.Security.Cryptography.SHA256.HashData(payload)).ToLowerInvariant();
     var downloadAsset = new ReleaseAsset(
-        "iPhoneMirror-Setup-v9.9.9-x64.exe",
-        new Uri("https://github.com/manato003/OpenMirror/releases/download/v9.9.9/iPhoneMirror-Setup-v9.9.9-x64.exe"),
+        "OpenMirror-Setup-v9.9.9-x64.exe",
+        new Uri("https://github.com/manato003/OpenMirror/releases/download/v9.9.9/OpenMirror-Setup-v9.9.9-x64.exe"),
         payload.LongLength, payloadHash);
     var downloadRelease = new ReleaseInfo("v9.9.9", "Mirror test", string.Empty,
         DateTimeOffset.UtcNow, SemanticVersion.Parse("v9.9.9"), false,

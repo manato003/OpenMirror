@@ -77,7 +77,7 @@ $OutputDirectory = if ($OutputDirectory) {
 } else { Join-Path $Root 'outputs\releases' }
 . (Join-Path $PSScriptRoot 'DdiBundle.ps1')
 $numericVersion = ($Version -split '-', 2)[0] + '.0'
-$expectedName = "iPhoneMirror-Setup-v$Version-x64.exe"
+$expectedName = "OpenMirror-Setup-v$Version-x64.exe"
 $expectedPath = Join-Path $OutputDirectory $expectedName
 
 Push-Location $Root

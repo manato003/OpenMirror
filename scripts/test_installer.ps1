@@ -79,7 +79,7 @@ function Build-TestInstaller([string]$BuildVersion) {
         "/DMyAppPathName=$AppPathName"
     ) + $compressionArguments + @((Join-Path $Root 'installer\iPhoneMirror.iss'))
     Invoke-Checked $Compiler $compilerArguments "Building installer test version $BuildVersion"
-    $path = Join-Path $OutputDirectory "iPhoneMirror-Setup-v$BuildVersion-x64.exe"
+    $path = Join-Path $OutputDirectory "OpenMirror-Setup-v$BuildVersion-x64.exe"
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Installer test output is missing: $path"
     }
