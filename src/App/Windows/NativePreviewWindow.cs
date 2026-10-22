@@ -17,7 +17,7 @@ namespace IPhoneMirror.App.Windows;
 /// DWM from allocating a second WPF redirection surface, allowing the native
 /// renderer to attach its visual tree directly to this HWND.
 /// </summary>
-internal sealed class NativePreviewWindow : IDisposable
+internal sealed class NativePreviewWindow : IDisposable, IMirrorControlTarget
 {
     internal const string StableTitle = "iPhoneMirror OBS Preview";
     private static readonly HashSet<NativePreviewWindow> OpenWindows = [];
@@ -144,6 +144,9 @@ internal sealed class NativePreviewWindow : IDisposable
     private readonly Action<nint>? _requestUsbControl;
     private readonly Action<nint>? _requestWirelessControl;
     private readonly Action<string>? _logDiagnostic;
+    private readonly Func<string>? _captureScreenshot;
+    private readonly string? _placementKey;
+    private MirrorControlBarWindow? _controlBar;
     private ulong _sessionHandle;
     private readonly double _cornerRadius;
     private readonly double _cornerExponent;
@@ -196,8 +199,11 @@ internal sealed class NativePreviewWindow : IDisposable
            Action<nint>? requestUsbControl = null,
            Action<nint>? requestWirelessControl = null,
            FrameworkElement? managedContent = null, Action? managedContentDetached = null,
-         Action<string>? logDiagnostic = null)
+         Action<string>? logDiagnostic = null, Func<string>? captureScreenshot = null,
+         string? placementKey = null)
     {
+        _captureScreenshot = captureScreenshot;
+        _placementKey = placementKey;
         _attachPreview = attachPreview;
         _detachPreview = detachPreview;
         _refreshPreview = refreshPreview;
@@ -462,7 +468,9 @@ internal sealed class NativePreviewWindow : IDisposable
         Action<nint>? requestReverseControl = null,
         Func<bool>? isUsbControlEnabled = null,
         Action<nint>? requestUsbControl = null,
-        Action<nint>? requestWirelessControl = null)
+        Action<nint>? requestWirelessControl = null,
+        Func<string>? captureScreenshot = null,
+        string? placementKey = null)
     {
         window = null;
         NativePreviewWindow? candidate = null;
@@ -478,7 +486,8 @@ internal sealed class NativePreviewWindow : IDisposable
                   isReverseControlEnabled, pointerInput, keyboardInput, requestReverseControl,
                   isUsbControlEnabled, requestUsbControl,
                   requestWirelessControl,
-                  logDiagnostic: logDiagnostic);
+                  logDiagnostic: logDiagnostic, captureScreenshot: captureScreenshot,
+                  placementKey: placementKey);
             if (!candidate._attachPreview(candidate._handle))
             {
                 logDiagnostic?.Invoke(AppLog.Event("independent_window_attach_failed",
@@ -488,6 +497,7 @@ internal sealed class NativePreviewWindow : IDisposable
             }
             candidate._attached = true;
             candidate.ShowInitially();
+            candidate.AttachControlBar();
             if (Volatile.Read(ref BossKeyHidden) != 0)
                 candidate.SetBossKeyHidden(true);
             else
@@ -552,23 +562,64 @@ internal sealed class NativePreviewWindow : IDisposable
         }
     }
 
+    private void AttachControlBar()
+    {
+        try { _controlBar = MirrorControlBarWindow.Attach(this); }
+        catch (Exception error)
+        {
+            // The right-click menu still offers every action.
+            Log("independent_window_control_bar_failed", ("error", AppLog.Error(error)));
+        }
+    }
+
+    nint IMirrorControlTarget.Handle => _handle;
+    bool IMirrorControlTarget.IsFullScreen => _isFullScreen;
+    bool IMirrorControlTarget.IsTopMost => _isTopMost;
+    bool? IMirrorControlTarget.IsAudioEnabled => _setAudioEnabled is null ? null : _isAudioEnabled?.Invoke();
+    bool IMirrorControlTarget.IsPointerCaptured => IsReverseControlActive;
+    bool IMirrorControlTarget.CanCaptureScreenshot => _captureScreenshot is not null && _protectedOverlay is null;
+    void IMirrorControlTarget.ToggleTopMost() => ToggleTopMost();
+    void IMirrorControlTarget.RotateClockwise() => Rotate(1);
+    void IMirrorControlTarget.ToggleFullScreen() => ToggleFullScreen();
+    void IMirrorControlTarget.ToggleAudio() => ToggleWindowAudio();
+    void IMirrorControlTarget.ShowMenu() => ShowContextMenu();
+    void IMirrorControlTarget.CloseMirror() => QueueClose();
+    string IMirrorControlTarget.CaptureScreenshot()
+    {
+        var path = (_captureScreenshot ?? throw new InvalidOperationException(
+            LocalizationService.Get("ScreenshotNoFrame")))();
+        Log("independent_window_screenshot", ("mode", WindowMode));
+        return path;
+    }
+
     private void ShowInitially()
     {
         var boundsApplied = _aspectController.ApplyInitialBounds();
         _isTopMost = false;
-        if (!SetWindowPos(_handle, HwndNoTopMost, 0, 0, 0, 0,
+        // Reopen where this phone's window was left; the aspect controller then
+        // keeps that area and centre while matching the current orientation.
+        var placement = MirrorWindowPlacementStore.Load(_placementKey);
+        if (placement is not null &&
+            SetWindowPos(_handle, 0, placement.Left, placement.Top,
+                placement.Right - placement.Left, placement.Bottom - placement.Top,
+                SwpNoZOrder | SwpNoActivate))
+        {
+            _aspectController.Reflow();
+            _isTopMost = placement.TopMost;
+        }
+        if (!SetWindowPos(_handle, _isTopMost ? HwndTopMost : HwndNoTopMost, 0, 0, 0, 0,
                 SwpNoSize | SwpNoMove | SwpNoActivate | SwpShowWindow))
         {
             // Keep the window usable if the combined show/z-order operation is
             // rejected by the shell. Its final bounds were already applied
             // while hidden, so this fallback still cannot expose a move.
             _ = ShowWindow(_handle, SwShow);
-            _ = SetWindowPos(_handle, HwndNoTopMost, 0, 0, 0, 0,
+            _ = SetWindowPos(_handle, _isTopMost ? HwndTopMost : HwndNoTopMost, 0, 0, 0, 0,
                 SwpNoSize | SwpNoMove | SwpNoActivate);
         }
         Log("independent_window_initial_layout",
             ("mode", WindowMode), ("bounds_applied", boundsApplied),
-            ("top_most", _isTopMost));
+            ("restored", placement is not null), ("top_most", _isTopMost));
     }
 
     internal void Activate()
@@ -675,6 +726,7 @@ internal sealed class NativePreviewWindow : IDisposable
             Log("independent_window_fullscreen",
                 ("mode", WindowMode), ("enabled", false));
             FullScreenChanged?.Invoke(false);
+            _controlBar?.Refresh();
             return;
         }
 
@@ -698,6 +750,17 @@ internal sealed class NativePreviewWindow : IDisposable
         Log("independent_window_fullscreen",
             ("mode", WindowMode), ("enabled", true));
         FullScreenChanged?.Invoke(true);
+        _controlBar?.Refresh();
+    }
+
+    private void SavePlacement()
+    {
+        if (_placementKey is null || _handle == 0 || IsIconic(_handle)) return;
+        WindowRect rect;
+        if (_isFullScreen) rect = _restoreRectangle;
+        else if (!GetWindowRect(_handle, out rect)) return;
+        MirrorWindowPlacementStore.Save(_placementKey, new MirrorWindowPlacement(
+            rect.Left, rect.Top, rect.Right, rect.Bottom, _isTopMost));
     }
 
     private void ApplyApplicationIcons()
@@ -907,6 +970,11 @@ internal sealed class NativePreviewWindow : IDisposable
                 handled = true;
                 QueueClose();
                 return 0;
+            case WmKeyDown when wParam.ToInt32() == VkEscape && _isFullScreen:
+            case WmKeyDown when wParam.ToInt32() == VkF11:
+                handled = true;
+                ToggleFullScreen();
+                return 0;
             case WmSysKeyDown when wParam.ToInt32() == VkReturn && GetKeyState(VkMenu) < 0:
                 handled = true;
                 ToggleFullScreen();
@@ -1043,6 +1111,7 @@ internal sealed class NativePreviewWindow : IDisposable
         var enabled = !_isAudioEnabled();
         _setAudioEnabled(enabled);
         UpdateContextMenuLabels();
+        _controlBar?.Refresh();
         Log("independent_window_audio",
             ("mode", WindowMode), ("enabled", enabled));
     }
@@ -1168,6 +1237,7 @@ internal sealed class NativePreviewWindow : IDisposable
         _ = SetWindowPos(_handle, _isTopMost ? HwndTopMost : HwndNoTopMost,
             0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
         UpdateContextMenuLabels();
+        _controlBar?.Refresh();
         Log("independent_window_topmost",
             ("mode", WindowMode), ("enabled", _isTopMost));
     }
@@ -1342,8 +1412,11 @@ internal sealed class NativePreviewWindow : IDisposable
         Log("independent_window_dispose_begin",
             ("mode", WindowMode), ("attached", _attached),
             ("full_screen", _isFullScreen));
+        SavePlacement();
         _disposed = true;
         _hoverOpacityTimer.Stop();
+        _controlBar?.CloseBar();
+        _controlBar = null;
         OpenWindows.Remove(this);
         ThemeService.ThemeChanged -= OnThemeChanged;
         _styleWindow?.Close();

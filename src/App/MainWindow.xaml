@@ -868,6 +868,23 @@
                     VerticalAlignment="Center"/>
             <StackPanel Grid.Column="5" Orientation="Horizontal"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <!-- The everyday receiver lives in the tray with its home window. -->
+                <Button Style="{StaticResource GhostButton}" MinHeight="34" Padding="10,0" Margin="0,0,6,0"
+                        VerticalAlignment="Center" FontWeight="Normal"
+                        AutomationProperties.Name="{DynamicResource HomeBackToSimple}"
+                        AutomationProperties.AutomationId="BackToSimpleButton"
+                        Click="OnBackToSimpleClick">
+                    <Button.ToolTip>
+                        <ToolTip FontFamily="{DynamicResource NavigationTextFontFamily}"
+                                 FontSize="12"
+                                 Content="{DynamicResource HomeBackToSimpleToolTip}"/>
+                    </Button.ToolTip>
+                    <StackPanel Orientation="Horizontal">
+                        <controls:ThemedSymbolIcon Style="{StaticResource ButtonSymbolIcon}" Symbol="PhoneDesktop20" FontSize="16"/>
+                        <TextBlock Text="{DynamicResource HomeBackToSimple}" Margin="6,0,0,0" VerticalAlignment="Center"
+                                   FontSize="{DynamicResource SecondaryFontSize}"/>
+                    </StackPanel>
+                </Button>
                 <Button Style="{StaticResource TitleBarButton}"
                         AutomationProperties.Name="{DynamicResource Minimize}"
                         Click="OnMinimizeClick">

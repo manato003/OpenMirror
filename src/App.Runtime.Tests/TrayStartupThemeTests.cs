@@ -97,9 +97,14 @@ internal static partial class Program
     {
         KeyboardCall(main, "ShowTrayPanel");
         AdvanceDispatcher(TimeSpan.FromMilliseconds(100));
-        var panel = (TrayPanelWindow)KeyboardField(main, "_trayPanel");
-        InteractionAssert(panel.IsVisible, "The tray panel must be visible before selecting the mode.");
-        ((ComboBox)panel.FindName("ModeSelector")).SelectedValue = mode;
+        var panel = (HomeWindow)KeyboardField(main, "_trayPanel");
+        InteractionAssert(panel.IsVisible, "Home must be visible before leaving the tray.");
+        // Home opens the complete workspace; other modes are chosen there.
+        if (mode == ApplicationDisplayMode.Complete)
+            KeyboardCall(panel, "OnAllFeaturesClick", panel, new RoutedEventArgs());
+        else
+            main.DataContext.GetType().GetProperty("SelectedApplicationDisplayMode")!
+                .SetValue(main.DataContext, mode);
         AdvanceDispatcher(TimeSpan.FromMilliseconds(600));
     }
 

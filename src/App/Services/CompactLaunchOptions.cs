@@ -5,8 +5,12 @@ using IPhoneMirror.App.Localization;
 
 namespace IPhoneMirror.App.Services;
 
-internal sealed record CompactLaunchOptions(bool Enabled, string? DeviceId, bool AutomationBackground = false)
+internal sealed record CompactLaunchOptions(bool Enabled, string? DeviceId, bool AutomationBackground = false,
+    bool ShowHome = false)
 {
+    // A plain second launch asks the running receiver to bring its home forward.
+    internal static CompactLaunchOptions HomeRequest { get; } = new(true, null, ShowHome: true);
+
     internal static CompactLaunchOptions Parse(IReadOnlyList<string> arguments)
     {
         var enabled = false;

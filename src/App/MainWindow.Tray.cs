@@ -11,7 +11,7 @@ namespace IPhoneMirror.App;
 public partial class MainWindow
 {
     private TrayIconService? _trayIcon;
-    private TrayPanelWindow? _trayPanel;
+    private HomeWindow? _trayPanel;
     private ProjectionSettingsWindow? _traySettingsWindow;
     private bool _startupServicesStarted;
     internal bool IsTrayMode => _viewModel.IsTrayApplicationMode || (Application.Current as App)?.AutomationBackground == true;
@@ -56,8 +56,10 @@ public partial class MainWindow
         try
         {
             _trayIcon = new TrayIconService(ShowTrayPanel);
-            _trayPanel = new TrayPanelWindow(_viewModel, StartTrayProjectionAsync,
-                ShowTraySettings, () => Close());
+            _trayPanel = new HomeWindow(_viewModel, new HomeWindowActions(
+                StartTrayProjectionAsync, StopTrayProjectionAsync, _secondaryMirrors.IsOpen,
+                OpenAllFeatures, () => Close(), OnHomeHidden));
+            AppIdentity.Attach(_trayPanel);
         }
         catch (Exception error)
         {
@@ -104,8 +106,49 @@ public partial class MainWindow
     private void ShowTrayPanel()
     {
         if (_shutdownStarted || !IsTrayMode || _trayPanel is null || _trayIcon is null) return;
-        if (_trayPanel.IsVisible && _trayPanel.IsActive) { _trayPanel.Hide(); return; }
-        _trayIcon.ShowPanel(_trayPanel);
+        _trayPanel.ShowAndActivate();
+    }
+
+    /// <summary>Brings the receiver's face forward: home in tray mode, the workspace otherwise.</summary>
+    internal void ShowHome()
+    {
+        if (_shutdownStarted) return;
+        if (IsTrayMode)
+        {
+            ShowTrayPanel();
+            return;
+        }
+        if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void OpenAllFeatures()
+    {
+        _trayPanel?.Hide();
+        _viewModel.SelectedApplicationDisplayMode = ApplicationDisplayMode.Complete;
+    }
+
+    private void OnHomeHidden()
+    {
+        if (Application.Current is not App app || app.UpdateSettings.HomeCloseNoticeShown) return;
+        // Say once where the receiver went; it keeps listening for the phone.
+        _trayIcon?.ShowNotification(LocalizationService.Get("HomeKeepsRunningTitle"),
+            LocalizationService.Get("HomeKeepsRunningBody"));
+        app.UpdateSettings.HomeCloseNoticeShown = true;
+        _ = app.SaveUpdateSettings();
+    }
+
+    private async Task StopTrayProjectionAsync(DeviceViewModel device)
+    {
+        if (_shutdownStarted) return;
+        // Closing the window is the tested stop path: it ends the session and
+        // pauses AirPlay so the phone shows that mirroring stopped.
+        if (_secondaryMirrors.Close(device.Udid)) return;
+        var handle = _viewModel.GetDeviceSessionHandle(device.Udid);
+        if (handle != 0)
+            await _viewModel.StopDeviceSessionAsync(device.Udid, handle,
+                pauseWireless: device.IsWireless);
     }
 
     private async Task StartTrayProjectionAsync(DeviceViewModel device)
@@ -121,6 +164,7 @@ public partial class MainWindow
         if (_shutdownStarted) return;
         QueueMainPreviewHostSync();
         _secondaryMirrors.Activate(device.Udid);
+        _trayPanel?.RefreshDevices();
     }
 
     private void ShowTraySettings()

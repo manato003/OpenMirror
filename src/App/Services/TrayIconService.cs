@@ -103,6 +103,20 @@ internal sealed class TrayIconService : IDisposable
         panel.Activate();
     }
 
+    internal void ShowNotification(string title, string text)
+    {
+        if (_disposed) return;
+        var data = _data;
+        data.Flags = 0x10; // NIF_INFO
+        data.InfoTitle = title.Length > 63 ? title[..63] : title;
+        data.Info = text.Length > 255 ? text[..255] : text;
+        data.InfoFlags = 0x04 | 0x20; // NIIF_USER with the large app icon
+        data.BalloonIcon = data.Icon;
+        if (!Shell_NotifyIconW(1, ref data))
+            DiagnosticLogger.Info("tray", "notification_failed",
+                ("win32_error", Marshal.GetLastWin32Error()));
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

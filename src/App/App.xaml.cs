@@ -14,6 +14,8 @@ public partial class App : Application
     internal bool IsUiPreviewMode { get; set; }
     internal CompactLaunchOptions LaunchOptions { get; private set; } = new(false, null);
     internal bool AutomationBackground { get; set; }
+    // Started by Windows sign-in: receive in the tray without showing home.
+    internal bool StartInBackground { get; private set; }
     private readonly UpdateSettingsStore _settingsStore = new();
     private readonly GitHubReleaseClient _releaseClient = new();
     private AboutWindow? _aboutWindow;
@@ -65,6 +67,7 @@ public partial class App : Application
             LocalizationService.Initialize();
             LaunchOptions = CompactLaunchOptions.Parse(e.Args);
             AutomationBackground = LaunchOptions.AutomationBackground;
+            StartInBackground = SignInLaunch.IsBackgroundLaunch(e.Args);
             AppIdentity.Initialize();
             UpdateSettings = _settingsStore.Load();
             ThemeService.Apply(UpdateSettings.Theme);
@@ -84,6 +87,17 @@ public partial class App : Application
             {
                 if (LaunchOptions.Enabled && CompactLaunchChannel.ForwardAsync(LaunchOptions).GetAwaiter().GetResult())
                 {
+                    Shutdown(0);
+                    return;
+                }
+                // Opening the app again means "show me the receiver", not
+                // "start a competing instance". A sign-in launch has nothing
+                // to show when the receiver is already running.
+                if (!LaunchOptions.Enabled && (StartInBackground || CompactLaunchChannel
+                        .ForwardAsync(CompactLaunchOptions.HomeRequest).GetAwaiter().GetResult()))
+                {
+                    DiagnosticLogger.Info("lifecycle", "running_instance_reused",
+                        ("background", StartInBackground));
                     Shutdown(0);
                     return;
                 }
@@ -111,7 +125,8 @@ public partial class App : Application
                 {
                     if (MainWindow is MainWindow window)
                     {
-                        if (options.AutomationBackground) _ = window.StartAutomationBackgroundAsync();
+                        if (options.ShowHome) window.ShowHome();
+                        else if (options.AutomationBackground) _ = window.StartAutomationBackgroundAsync();
                         else _ = window.OpenCompactRequestAsync(options);
                     }
                 }));
@@ -157,14 +172,16 @@ public partial class App : Application
             _ = backgroundWindow.StartAutomationBackgroundAsync();
             return;
         }
-        var startProjection = false;
-        if (MainWindow is MainWindow setupWindow && !LaunchOptions.Enabled && new FirstRunSetupStore().Load().ShouldOpen)
-            startProjection = setupWindow.ShowFirstRunSetup();
+        // The home window explains the only step wireless mirroring needs, so
+        // the first-run wizard is no longer opened automatically. It remains
+        // available from the full workspace for wired and control setup.
         if (MainWindow is MainWindow { IsTrayMode: true } trayWindow)
+        {
             trayWindow.StartInTray();
+            if (!StartInBackground && !LaunchOptions.Enabled) trayWindow.ShowHome();
+        }
         else
             MainWindow?.Show();
-        if (startProjection && MainWindow is MainWindow readyWindow) readyWindow.StartAfterSetup();
         _ = CheckForStartupUpdatesAsync();
     }
 

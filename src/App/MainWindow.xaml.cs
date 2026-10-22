@@ -373,6 +373,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _secondaryMirrors.UsbControlRequested += OnIndependentUsbControlRequested;
         _secondaryMirrors.WirelessControlRequested += OnIndependentWirelessControlRequested;
         _secondaryMirrors.PreviewClosed += OnIndependentPreviewClosed;
+        // Home lists what is on screen; keep its buttons in step with the windows.
+        _secondaryMirrors.PreviewClosed += _ => _trayPanel?.RefreshDevices();
+        _secondaryMirrors.PreviewOpened += _ => _trayPanel?.RefreshDevices();
         _secondaryMirrors.PointerInput += OnIndependentPointerInput;
         _secondaryMirrors.KeyboardInput += OnIndependentKeyboardInput;
         _secondaryMirrors.KeyboardFocusChanged += OnIndependentKeyboardFocusChanged;
@@ -2460,6 +2463,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void OnMinimizeClick(object sender, RoutedEventArgs e) =>
         WindowState = WindowState.Minimized;
+
+    private void OnBackToSimpleClick(object sender, RoutedEventArgs e)
+    {
+        _viewModel.SelectedApplicationDisplayMode = ApplicationDisplayMode.Tray;
+        Dispatcher.BeginInvoke(ShowHome);
+    }
 
     private void OnHeaderMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

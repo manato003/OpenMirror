@@ -41,11 +41,11 @@ internal static partial class Program
             AdvanceDispatcher(TimeSpan.FromMilliseconds(120));
             InteractionAssert(!everVisible && !main.ShowInTaskbar, "Tray startup flashed the workspace.");
             InteractionAssert(KeyboardField(main, "_trayIcon") is not null, "Tray icon missing.");
-            var panel = (TrayPanelWindow)KeyboardField(main, "_trayPanel");
+            var panel = (HomeWindow)KeyboardField(main, "_trayPanel");
             var vm = main.DataContext;
             KeyboardCall(main, "ShowTrayPanel");
             AdvanceDispatcher(TimeSpan.FromMilliseconds(120));
-            InteractionAssert(panel.IsVisible && !main.IsVisible, "Tray icon did not open only the panel.");
+            InteractionAssert(panel.IsVisible && !main.IsVisible, "Tray icon did not open only home.");
             panel.Close(); // Same Closing path as Alt+F4.
             InteractionAssert(!panel.IsVisible, "Closing the panel must hide it.");
             KeyboardCall(main, "ShowTrayPanel");
@@ -62,7 +62,7 @@ internal static partial class Program
             InteractionAssert(settings.IsVisible, "Device selection closed the global tray settings.");
             settings.Close();
             TestTrayAudioSettings(app, vm, first);
-            TestTrayPanelInteractionAndLayout(vm, output);
+            TestHomeInteractionAndLayout(vm, output);
 
             TestTrayMediaStop(main, vm);
 
@@ -79,7 +79,7 @@ internal static partial class Program
             }
             TestTrayStartupUpdates(app, main, vm);
             InteractionAssert(trace.Messages.Count == 0, string.Join(Environment.NewLine, trace.Messages));
-            Console.WriteLine("Tray tests passed: hidden startup, shell panel reopening, Escape, focus loss, busy/error handling, audio settings, media stop notification, startup updates, mode switching, settings persistence, and 3 languages × 2 themes.");
+            Console.WriteLine("Tray tests passed: hidden startup, home reopening, Escape, busy/error handling, all features, audio settings, media stop notification, startup updates, mode switching, settings persistence, and 5 languages × 2 themes.");
             return 0;
         }
         finally
@@ -113,64 +113,4 @@ internal static partial class Program
 
     private static ObservableCollection<DeviceViewModel> TrayDevices(object vm) =>
         (ObservableCollection<DeviceViewModel>)vm.GetType().GetProperty("Devices")!.GetValue(vm)!;
-
-    private static void TestTrayPanelInteractionAndLayout(object vm, string output)
-    {
-        var pending = new TaskCompletionSource();
-        var startCount = 0;
-        var constructor = typeof(TrayPanelWindow).GetConstructors(KeyboardTestMembers).Single();
-        var panel = (TrayPanelWindow)constructor.Invoke([vm, (Func<DeviceViewModel, Task>)(_ =>
-        { startCount++; return pending.Task; }), (Action)(() => { }), (Action)(() => { })]);
-        try
-        {
-            var language = typeof(App).Assembly.GetType("IPhoneMirror.App.Localization.LocalizationService")!
-                .GetMethod("ApplyLanguage", BindingFlags.Static | BindingFlags.NonPublic)!;
-            var layoutFindings = new HashSet<string>();
-            foreach (var culture in new[] { "zh-CN", "zh-HK", "zh-TW", "en-US" })
-            foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
-            {
-                language.Invoke(null, [culture, false, true]);
-                InteractionAssert(Application.Current.TryFindResource("TrayStartMirroring") is string,
-                    $"Missing tray localization for {culture}.");
-                ApplyTheme(typeof(App).Assembly, theme);
-                panel.Show();
-                panel.Activate();
-                AdvanceDispatcher(TimeSpan.FromMilliseconds(300));
-                panel.UpdateLayout();
-                AssertSelfDrawnWindowCorners(panel);
-                AssertVisibleButtonsFit(panel);
-                SaveWindowRender(panel, Path.Combine(output, $"{culture}-{theme}-tray.png"));
-                ExerciseWorkAreaSizes(panel, $"tray/{culture}/{theme}", layoutFindings);
-            }
-            InteractionAssert(layoutFindings.Count == 0, string.Join(Environment.NewLine, layoutFindings));
-            var start = (Button)panel.FindName("StartButton");
-            start.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            start.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            InteractionAssert(startCount == 1 && !start.IsEnabled, "Rapid clicks started duplicate projections.");
-            pending.SetException(new InvalidOperationException("Expected connection failure for regression test."));
-            AdvanceDispatcher(TimeSpan.FromMilliseconds(80));
-            InteractionAssert(start.IsEnabled && ((TextBlock)panel.FindName("FeedbackText")).Text.Contains("Expected connection failure"),
-                "Projection failure did not restore controls and display feedback.");
-            pending = new TaskCompletionSource();
-            start.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            pending.SetResult();
-            AdvanceDispatcher(TimeSpan.FromMilliseconds(80));
-            InteractionAssert(!panel.IsVisible, "Successful projection did not hide the panel.");
-            panel.Show();
-            panel.Activate();
-            ((ListBox)panel.FindName("DeviceList")).Focus();
-            var other = new Window { Style = new Style(typeof(Window)), Width = 180, Height = 120, ShowInTaskbar = false };
-            other.Show();
-            other.Activate();
-            AdvanceDispatcher(TimeSpan.FromMilliseconds(120));
-            other.Close();
-            InteractionAssert(!panel.IsVisible, "Losing focus while a device is selected did not hide the panel.");
-            TrayDevices(vm).Clear();
-            panel.Show();
-            panel.UpdateLayout();
-            InteractionAssert(!start.IsEnabled, "Empty device list enabled projection.");
-            SaveWindowRender(panel, Path.Combine(output, "tray-empty.png"));
-        }
-        finally { KeyboardCall(panel, "ClosePermanently"); }
-    }
 }

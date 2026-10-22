@@ -30,8 +30,11 @@ internal sealed class UpdateSettings
     public bool NotifyStableReleases { get; set; } = true;
     public bool NotifyPrereleaseReleases { get; set; }
     public AppTheme Theme { get; set; } = AppTheme.System;
+    // The receiver lives in the tray and opens one window per mirrored device;
+    // the home window replaces the full workspace as the everyday surface.
     public ApplicationDisplayMode ApplicationDisplayMode { get; set; } =
-        ApplicationDisplayMode.Complete;
+        ApplicationDisplayMode.Tray;
+    public bool HomeCloseNoticeShown { get; set; }
     public WirelessReceiverBackend WirelessReceiverBackend { get; set; } =
         WirelessReceiverBackend.Original;
     public string WirelessDisplayProfileId { get; set; } = "1080p";
@@ -113,6 +116,7 @@ internal sealed class UpdateSettings
         NotifyPrereleaseReleases = NotifyPrereleaseReleases,
         Theme = Theme,
         ApplicationDisplayMode = ApplicationDisplayMode,
+        HomeCloseNoticeShown = HomeCloseNoticeShown,
         WirelessReceiverBackend = WirelessReceiverBackend,
         WirelessDisplayProfileId = WirelessDisplayProfileId,
         WirelessReceiverName = WirelessReceiverName,

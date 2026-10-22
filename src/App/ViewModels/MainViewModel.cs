@@ -3890,7 +3890,24 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task RestartWirelessReceiverAsync()
+    // Home edits the receiver in place: apply silently when nothing would be
+    // interrupted, and ask only when connected mirrors would be disconnected.
+    internal Task ApplyReceiverSettingsAsync(string receiverName, WirelessDisplayProfile profile)
+    {
+        WirelessReceiverName = receiverName;
+        if (!ReferenceEquals(_wireless.SelectedProfile, profile))
+        {
+            _wireless.SelectedProfile = profile;
+            OnPropertyChanged(nameof(SelectedWirelessDisplayProfile));
+        }
+        return RestartWirelessReceiverAsync(confirmOnlyWhenConnected: true);
+    }
+
+    internal WirelessDisplayProfile AppliedWirelessDisplayProfile => _wireless.AppliedProfile;
+    internal string AppliedWirelessReceiverName => _wireless.AppliedReceiverName;
+    internal bool IsWirelessReceiverReady => _wireless.Running && _wireless.Ready;
+
+    private async Task RestartWirelessReceiverAsync(bool confirmOnlyWhenConnected = false)
     {
         if (_disposed || IsBusy) return;
         var profile = SelectedWirelessDisplayProfile;
@@ -3940,8 +3957,9 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged
         if (changes.Count == 0)
         {
             AddDiagnosticLog(AppLog.Event("wireless_settings_unchanged"));
-            AppPromptWindow.Inform(LocalizationService.Get("WirelessSettingsTitle"),
-                LocalizationService.Get("WirelessSettingsUnchanged"));
+            if (!confirmOnlyWhenConnected)
+                AppPromptWindow.Inform(LocalizationService.Get("WirelessSettingsTitle"),
+                    LocalizationService.Get("WirelessSettingsUnchanged"));
             return;
         }
         var impact = connectedCount > 0
@@ -3949,7 +3967,8 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged
             : LocalizationService.Get("WirelessSettingsReadyImpact");
         var body = LocalizationService.Format("WirelessSettingsConfirmFormat",
             LocalizationService.Join(Environment.NewLine, changes), impact, sanitized);
-        if (!AppPromptWindow.Confirm(LocalizationService.Get("WirelessSettingsTitle"), body))
+        if ((!confirmOnlyWhenConnected || connectedCount > 0) &&
+            !AppPromptWindow.Confirm(LocalizationService.Get("WirelessSettingsTitle"), body))
         {
             AddDiagnosticLog(AppLog.Event("wireless_settings_cancelled"));
             return;
@@ -5634,6 +5653,14 @@ internal sealed partial class MainViewModel : INotifyPropertyChanged
 
     internal string CaptureScreenshot(string path) =>
         ScreenshotService.CapturePng(_core.GetLatestVideoFrame, path);
+
+    internal string CaptureDeviceScreenshot(string udid, string path)
+    {
+        var handle = _sessions.TryGet(udid, out var state) && IsSessionPresentable(state)
+            ? state.Handle : null;
+        return ScreenshotService.CapturePng(
+            () => _core.GetDeviceOutputFrame(handle, 0, 0, owned: true), path);
+    }
 
     private void AddLogLine(string line)
     {

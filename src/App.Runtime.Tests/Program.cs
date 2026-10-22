@@ -194,6 +194,8 @@ internal static partial class Program
                 return RunThemeContentAudit(themeContentOutput);
             if (args is ["--tray-mode", var trayOutput])
                 return RunTrayModeTests(trayOutput);
+            if (args is ["--mirror-control-bar", var barOutput])
+                return RunMirrorControlBarTests(barOutput);
             if (args is ["--ui-performance", var performanceOutput])
                 return RunUiPerformanceAudit(performanceOutput);
             if (args is ["--ui-regression"])

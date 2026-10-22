@@ -1,3 +1,4 @@
+using System.IO;
 using IPhoneMirror.App.Localization;
 using IPhoneMirror.App.Models;
 using IPhoneMirror.App.ViewModels;
@@ -26,6 +27,7 @@ internal sealed class MultiDevicePreviewManager : IDisposable
     internal event Action<string, nint>? UsbControlRequested;
     internal event Action<string, nint>? WirelessControlRequested;
     internal event Action<string>? PreviewClosed;
+    internal event Action<string>? PreviewOpened;
     internal event Action<string, PreviewPointerEventArgs>? PointerInput;
     internal event Action<string, PreviewKeyboardEventArgs>? KeyboardInput;
     internal event Action<string, nint, bool>? KeyboardFocusChanged;
@@ -193,7 +195,8 @@ internal sealed class MultiDevicePreviewManager : IDisposable
                  hwnd => ReverseControlRequested?.Invoke(device.Udid, hwnd),
                  () => viewModel.IsUsbControlTarget(device.Udid),
                  hwnd => UsbControlRequested?.Invoke(device.Udid, hwnd),
-                 hwnd => WirelessControlRequested?.Invoke(device.Udid, hwnd)) || window is null)
+                 hwnd => WirelessControlRequested?.Invoke(device.Udid, hwnd),
+                 () => CaptureScreenshot(device.Udid), device.Udid) || window is null)
         {
             if (started.Created)
                 await viewModel.StopDeviceSessionAsync(
@@ -207,6 +210,7 @@ internal sealed class MultiDevicePreviewManager : IDisposable
         if (_protectionStates.TryGetValue(device.Udid, out var protection))
             window.SetProtectedContent(protection.IsProtected,
                 protection.AudioDisplay);
+        PreviewOpened?.Invoke(device.Udid);
         viewModel.AddDiagnosticLog(AppLog.Event("independent_preview_opened",
             ("device", AppLog.Device(device.Udid)),
             ("handle", AppLog.Handle(started.Handle)),
@@ -239,6 +243,25 @@ internal sealed class MultiDevicePreviewManager : IDisposable
             }
         };
         return (true, string.Empty);
+    }
+
+    // Save straight to Pictures\iPhoneMirror: the bar's notice reveals the file,
+    // so a save dialog would only add a step to the most common case.
+    private string CaptureScreenshot(string udid)
+    {
+        var directory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "iPhoneMirror");
+        Directory.CreateDirectory(directory);
+        var saved = viewModel.CaptureDeviceScreenshot(udid, ScreenshotService.CreateDefaultPath(directory));
+        viewModel.AddUiLog(LocalizationService.Format("ScreenshotSavedFormat", saved));
+        return saved;
+    }
+
+    internal bool Close(string? udid)
+    {
+        if (string.IsNullOrWhiteSpace(udid) || !_windows.TryGetValue(udid, out var window)) return false;
+        window.Dispose();
+        return true;
     }
 
     private void LogAudioResult((bool Success, string Message) result)

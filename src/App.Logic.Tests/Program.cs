@@ -3065,8 +3065,8 @@ try
         "Bluetooth mouse sensitivity defaults to 500 percent");
     Equal(1000d, defaults.BluetoothWheelSensitivity,
         "Bluetooth wheel sensitivity defaults to 1000 percent");
-    Equal(ApplicationDisplayMode.Complete, defaults.ApplicationDisplayMode,
-        "application display mode defaults to complete");
+    Equal(ApplicationDisplayMode.Tray, defaults.ApplicationDisplayMode,
+        "application display mode defaults to the tray receiver and its home window");
     Equal(WirelessReceiverBackend.Original, defaults.WirelessReceiverBackend,
         "wireless receiver backend defaults to the original implementation");
     Equal(0, defaults.BluetoothPortraitMouseDirection,

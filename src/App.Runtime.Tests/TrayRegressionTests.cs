@@ -105,7 +105,7 @@ internal static partial class Program
             SetKeyboardField(app, "_startupUpdateCheckStarted", false);
             SetSetting("CheckOnStartup", enabled);
             launchProperty.SetValue(app, Activator.CreateInstance(originalLaunch.GetType(),
-                KeyboardTestMembers, null, [compact, null], null));
+                KeyboardTestMembers, null, [compact, null, false, false], null));
             handler.ReleaseRequests = 0;
             handler.ReturnUpdate = false;
             handler.Fail = false;
