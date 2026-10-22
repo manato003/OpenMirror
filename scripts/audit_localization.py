@@ -71,8 +71,9 @@ def installer_resources():
     script_path = ROOT/'installer/iPhoneMirror.iss'
     script = script_path.read_text(encoding='utf-8-sig')
     codes = {'chinesesimp': 'zh-CN', 'chinesetrad': 'zh-HK',
-             'chinesetaiwan': 'zh-TW', 'english': 'en-US'}
-    language_ids = {'zh-CN': '$0804', 'zh-HK': '$0C04', 'zh-TW': '$0404', 'en-US': '$0409'}
+             'chinesetaiwan': 'zh-TW', 'english': 'en-US', 'japanese': 'ja-JP'}
+    language_ids = {'zh-CN': '$0804', 'zh-HK': '$0C04', 'zh-TW': '$0404', 'en-US': '$0409',
+                    'ja-JP': '$0411'}
     # Read the actual compiler inputs. Cached files must not hide a deleted
     # [Languages] entry or a changed MessagesFile path.
     section = re.search(r'^\[Languages\]\s*\n(.*?)(?=^\[|\Z)', script, re.M | re.S)

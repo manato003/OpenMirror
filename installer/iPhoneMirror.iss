@@ -53,7 +53,14 @@ VersionInfoCompany=RayrenSX
 VersionInfoDescription={#MyAppName} Windows x64 Setup
 VersionInfoProductName={#MyAppName}
 DefaultDirName={#MyDefaultDir}
-DisableDirPage=no
+; One double-click installs and opens the receiver. Upgrades keep the
+; previous folder; a new install uses Program Files. The GPL text is still
+; installed with the application (LICENSE, THIRD_PARTY_NOTICES.md).
+DisableDirPage=yes
+DisableWelcomePage=yes
+DisableReadyPage=yes
+DisableFinishedPage=yes
+ShowLanguageDialog=auto
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 AllowNoIcons=no
@@ -62,9 +69,9 @@ OutputBaseFilename=iPhoneMirror-Setup-v{#MyAppVersion}-x64
 SetupIconFile=..\src\App\Assets\iPhoneMirror.ico
 UninstallDisplayIcon={app}\iPhoneMirror.exe
 UninstallDisplayName={#MyAppName} {#MyAppVersion}
-LicenseFile=..\LICENSE
 PrivilegesRequired={#MyPrivilegesRequired}
-PrivilegesRequiredOverridesAllowed=dialog commandline
+; No "all users or just me?" question; scripted tests still pass /CURRENTUSER.
+PrivilegesRequiredOverridesAllowed=commandline
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
@@ -77,7 +84,7 @@ SolidCompression={#MySolidCompression}
 LZMAUseSeparateProcess=yes
 LZMADictionarySize=262144
 LZMANumFastBytes=273
-CloseApplications=yes
+CloseApplications=force
 CloseApplicationsFilter=iPhoneMirror.exe,iPhoneMirror.Driver.exe
 RestartApplications=no
 SetupLogging=yes
@@ -90,6 +97,7 @@ Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "chinesetrad"; MessagesFile: "compiler:Languages\ChineseTraditional.isl"
 Name: "chinesetaiwan"; MessagesFile: "Languages\ChineseTraditionalTaiwan.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 
 [LangOptions]
 chinesetrad.LanguageName=繁體中文（香港）
@@ -186,14 +194,17 @@ chinesetrad.ReadyMemoUserInfo=使用者資料：
 
 chinesetrad.WizardUserInfo=使用者資料
 
+; Inno Setup's Japanese file omits this optional note; keep it empty like the others.
+japanese.HelpTextNote=
+
 [CustomMessages]
+; Give the Japanese label the same Alt+A accelerator as the other languages.
+japanese.AssocFileExtension=ファイル拡張子 %2 に %1 を関連付ける(&A)
 chinesesimp.DeleteUserDataPrompt=是否同时删除 iPhoneMirror 的用户配置和已下载更新？选择“否”将保留这些数据，以便以后重新安装。
 chinesetrad.DeleteUserDataPrompt=是否同時刪除 iPhoneMirror 的使用者設定和已下載的更新？選擇「否」會保留這些資料，以便日後重新安裝。
 chinesetaiwan.DeleteUserDataPrompt=是否同時刪除 iPhoneMirror 的使用者設定和已下載的更新？選擇「否」會保留這些資料，以便日後重新安裝。
 english.DeleteUserDataPrompt=Also delete iPhoneMirror settings and downloaded updates? Choose No to keep this data for a later reinstall.
-
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+japanese.DeleteUserDataPrompt=iPhoneMirrorの設定とダウンロードした更新も削除しますか？「いいえ」を選ぶと、あとで入れ直すときのために残します。
 
 [Files]
 ; Install the bridge's libusb0 copy explicitly. Inno Setup can collapse the
@@ -228,16 +239,14 @@ Name: "{group}\解除安裝"; Filename: "{uninstallexe}"; IconFilename: "{uninst
 Name: "{group}\Uninstall"; Filename: "{uninstallexe}"; IconFilename: "{uninstallexe}"; Languages: english
 Name: "{group}\更新記錄"; Filename: "{app}\CHANGELOG.zh-TW.md"; WorkingDir: "{app}"; IconFilename: "{app}\iPhoneMirror.exe"; AppUserModelID: "{#MyAppUserModelId}"; Languages: chinesetaiwan
 Name: "{group}\解除安裝"; Filename: "{uninstallexe}"; IconFilename: "{uninstallexe}"; Languages: chinesetaiwan
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\iPhoneMirror.exe"; WorkingDir: "{app}"; IconFilename: "{app}\iPhoneMirror.exe"; AppUserModelID: "{#MyAppUserModelId}"; Tasks: desktopicon
+Name: "{group}\更新履歴"; Filename: "{app}\CHANGELOG.md"; WorkingDir: "{app}"; IconFilename: "{app}\iPhoneMirror.exe"; AppUserModelID: "{#MyAppUserModelId}"; Languages: japanese
+Name: "{group}\アンインストール"; Filename: "{uninstallexe}"; IconFilename: "{uninstallexe}"; Languages: japanese
 
 [Registry]
 Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#MyAppPathName}"; ValueType: string; ValueName: ""; ValueData: "{app}\iPhoneMirror.exe"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#MyAppPathName}"; ValueType: string; ValueName: "Path"; ValueData: "{app}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\AppUserModelId\{#MyAppUserModelId}"; ValueType: string; ValueName: "DisplayName"; ValueData: "{#MyAppName}"; Flags: uninsdeletevalue uninsdeletekeyifempty
 Root: HKA; Subkey: "Software\Classes\AppUserModelId\{#MyAppUserModelId}"; ValueType: string; ValueName: "IconUri"; ValueData: "{app}\iPhoneMirror.exe"; Flags: uninsdeletevalue uninsdeletekeyifempty
-
-[Run]
-Filename: "{app}\iPhoneMirror.exe"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 const
@@ -400,7 +409,7 @@ begin
   end;
 
   if (CurStep = ssDone) and
-     (ExpandConstant('{param:STARTAPP|0}') = '1') then
+     ((not WizardSilent) or (ExpandConstant('{param:STARTAPP|0}') = '1')) then
   begin
     { Give Restart Manager time to release handles from both application EXEs
       before the updated shared runtime is loaded by a new process. }
